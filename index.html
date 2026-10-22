@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#292c3d">
+<title>与你共看落霞</title>
+<style>
+  :root { color-scheme: dark; font-family: "Songti SC","Noto Serif CJK SC","STSong",serif; }
+  * { box-sizing: border-box; }
+  html,body { margin:0; width:100%; height:100%; overflow:hidden; background:#34364b; }
+  #scene { position:fixed; inset:0; width:100%; height:100%; display:block; }
+  #scene::selection { background:transparent; }
+  .grain { position:fixed; inset:0; pointer-events:none; opacity:.13; mix-blend-mode:soft-light;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.76' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E"); }
+  .haze { position:fixed; inset:0; pointer-events:none; background:linear-gradient(180deg,rgba(16,22,43,.17),transparent 29%,transparent 79%,rgba(9,18,30,.18)); }
+  .foreground { position:fixed; left:0; right:0; bottom:0; width:100%; height:24%; min-height:124px; pointer-events:none; }
+  .couple { position:fixed; width:min(41vw,590px); height:auto; left:5.3%; bottom:3.3%; filter:drop-shadow(0 8px 13px rgba(12,20,29,.35)); pointer-events:none; transform-origin:bottom center; }
+  .bird { position:fixed; left:0; top:0; width:68px; height:38px; pointer-events:none; filter:drop-shadow(0 0 3px rgba(255,199,165,.25)); }
+  .bird .wing-left, .bird .wing-right { transform-box:fill-box; }
+  .bird .wing-left { transform-origin:95% 72%; }
+  .bird .wing-right { transform-origin:5% 72%; }
+  .reeds { position:fixed; right:0; bottom:0; width:min(17vw,200px); height:39vh; pointer-events:none; transform-origin:bottom right; }
+  .title { position:fixed; left:4.8%; top:7.4%; z-index:3; color:#fff3df; text-shadow:0 2px 22px rgba(43,40,60,.65); user-select:none; }
+  .eyebrow { display:block; font:500 10px/1.6 system-ui,sans-serif; letter-spacing:.39em; text-transform:uppercase; opacity:.74; margin-bottom:16px; }
+  h1 { font-weight:400; font-size:clamp(26px,3.2vw,46px); letter-spacing:.15em; margin:0; }
+  .poem { display:block; margin-top:19px; font-size:clamp(12px,1.06vw,15px); letter-spacing:.19em; line-height:2; opacity:.82; }
+  .controls { position:fixed; z-index:5; right:24px; bottom:22px; display:flex; gap:8px; align-items:center; font:12px system-ui,sans-serif; }
+  #renderer { position:fixed; z-index:5; right:24px; top:22px; color:#fff4e7; background:rgba(34,38,53,.34); border:1px solid rgba(255,242,224,.3); border-radius:999px; padding:7px 11px; font:11px system-ui,sans-serif; backdrop-filter:blur(10px); }
+  #renderer[hidden] { display:none; }
+  button { border:1px solid rgba(255,242,224,.38); color:#fff7ec; background:rgba(34,38,53,.32); backdrop-filter:blur(12px); border-radius:999px; padding:9px 13px; min-width:42px; min-height:39px; cursor:pointer; transition:background .2s,border-color .2s; }
+  button:hover,button:focus-visible { background:rgba(60,58,70,.66); border-color:rgba(255,242,224,.75); outline:none; }
+  button:focus-visible { box-shadow:0 0 0 2px #fff3db; }
+  #status { position:fixed; z-index:8; inset:0; display:none; align-items:center; justify-content:center; padding:28px; text-align:center; background:linear-gradient(#43445c,#ad7d78); color:#fff8eb; font:16px/1.9 system-ui,sans-serif; }
+  #status p { max-width:32em; }
+  @media (max-width:700px) {
+    .title { left:7%; top:5.6%; }
+    .eyebrow { font-size:9px; margin-bottom:11px; }
+    h1 { font-size:27px; }
+    .poem { font-size:11px; letter-spacing:.08em; margin-top:10px; }
+    .couple { width:81vw; left:-3%; bottom:8%; }
+    .foreground { height:19%; }
+    .reeds { width:24vw; height:31vh; }
+    .controls { right:12px; bottom:12px; gap:5px; }
+    #renderer { right:12px; top:auto; bottom:58px; }
+    button { font-size:11px; padding:7px 10px; }
+  }
+  @media (prefers-reduced-motion:reduce) { button { transition:none; } }
+</style>
+</head>
+<body>
+<canvas id="scene" aria-label="WebGPU 实时绘制的落日、晚霞与秋水"></canvas>
+<div class="grain" aria-hidden="true"></div><div class="haze" aria-hidden="true"></div>
+
+<svg class="foreground" viewBox="0 0 1600 240" preserveAspectRatio="none" aria-hidden="true">
+  <defs><linearGradient id="bank" x2="0" y2="1"><stop stop-color="#484751"/><stop offset=".36" stop-color="#292f39"/><stop offset="1" stop-color="#111e2a"/></linearGradient><linearGradient id="edge" x2="0" y2="1"><stop stop-color="#d79772" stop-opacity=".7"/><stop offset="1" stop-color="#4d4144" stop-opacity="0"/></linearGradient></defs>
+  <path d="M0 133 C110 120 179 143 283 118 C372 96 477 102 561 123 C668 146 782 148 878 157 C1003 170 1078 160 1183 174 C1350 189 1464 178 1600 184 L1600 240 L0 240Z" fill="url(#bank)"/>
+  <path d="M0 133 C110 120 179 143 283 118 C372 96 477 102 561 123 C668 146 782 148 878 157" fill="none" stroke="url(#edge)" stroke-width="3" opacity=".8"/>
+  <path d="M0 162 C236 121 332 160 500 140 M644 167 C777 159 821 169 905 171 M1032 193 C1230 180 1435 202 1600 190" fill="none" stroke="#a56d63" stroke-width="2" opacity=".22"/>
+  <path d="M0 199 C210 187 320 208 478 193 M745 214 C904 196 1088 212 1220 202" fill="none" stroke="#687071" stroke-width="2" opacity=".18"/>
+</svg>
+
+<svg class="couple" viewBox="0 0 620 490" aria-label="一对依偎看日落的年轻情侣" role="img">
+  <defs>
+    <linearGradient id="coatA" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#343745"/><stop offset=".55" stop-color="#222b3a"/><stop offset="1" stop-color="#111d2b"/></linearGradient>
+    <linearGradient id="coatB" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#674f52"/><stop offset=".55" stop-color="#483e49"/><stop offset="1" stop-color="#2b2e3b"/></linearGradient>
+    <linearGradient id="skin" x1=".05" y1="0" x2="1" y2="1"><stop stop-color="#8d625c"/><stop offset=".64" stop-color="#64474c"/><stop offset="1" stop-color="#bc8170"/></linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#e2a47d" stop-opacity="0"/><stop offset=".6" stop-color="#e7aa82" stop-opacity=".48"/><stop offset="1" stop-color="#f4ba8c" stop-opacity=".8"/></linearGradient>
+  </defs>
+  <ellipse cx="287" cy="463" rx="269" ry="21" fill="#111a27" opacity=".45"/>
+  <!-- 两人交叠的腿和靴子 -->
+  <path d="M97 397 Q163 373 235 392 L330 431 Q355 443 351 465 L328 473 L181 442 Q129 451 69 472 L32 469 Q18 458 41 448Z" fill="#202838" stroke="#9d7267" stroke-width="2"/>
+  <path d="M270 399 Q361 378 425 401 L514 451 Q532 459 532 472 L497 479 L389 449 Q345 454 299 479 L268 476 Q251 465 269 451Z" fill="#232635" stroke="#a17067" stroke-width="2"/>
+  <!-- 后侧人物：肩背与手臂有自然落点 -->
+  <path d="M142 219 Q112 227 90 256 Q59 298 57 368 Q57 405 86 423 Q123 442 185 431 L266 424 Q288 393 276 324 Q273 281 255 246 Q232 218 198 212Z" fill="url(#coatA)" stroke="#b47e70" stroke-width="2.2"/>
+  <path d="M92 264 Q70 322 70 386 Q71 408 101 418 M111 282 Q99 329 108 380 M210 254 Q241 292 246 344" fill="none" stroke="#73727a" stroke-width="3" opacity=".32"/>
+  <path d="M197 209 Q191 227 191 244 Q172 257 151 247 L148 218Z" fill="url(#skin)"/>
+  <!-- 短发人物的耳颈与头部 -->
+  <path d="M126 134 Q119 149 121 173 Q125 194 143 210 Q156 221 178 216 Q198 204 202 181 L197 149 Q183 121 153 119Z" fill="#493b46" stroke="#d89a78" stroke-width="2"/>
+  <path d="M189 153 Q201 163 200 181 Q196 199 180 210" fill="none" stroke="#b9796c" stroke-width="4" opacity=".55"/>
+  <path d="M121 155 Q109 146 116 133 Q113 112 129 99 Q138 84 159 85 Q180 83 195 99 Q208 111 204 131 Q200 143 195 150 Q184 145 182 129 Q168 137 150 131 Q136 140 121 155Z" fill="#252532" stroke="#a97868" stroke-width="2.2"/>
+  <path d="M119 145 Q111 162 119 170 M194 119 Q201 136 195 155" fill="none" stroke="#e9ab83" stroke-width="2.3" opacity=".75"/>
+  <path d="M151 198 Q170 210 185 197" fill="none" stroke="#b67a6b" stroke-width="1.7" opacity=".48"/>
+  <!-- 前侧人物的身体倾向伴侣 -->
+  <path d="M306 246 Q272 239 245 259 Q219 283 207 337 Q191 390 213 419 Q258 445 343 441 Q394 442 427 419 Q437 383 416 327 Q407 275 371 251 Q339 238 306 246Z" fill="url(#coatB)" stroke="#df9d7b" stroke-width="2.3"/>
+  <path d="M237 298 Q220 340 215 397 M274 269 Q261 320 277 381 M368 267 Q395 310 409 375" fill="none" stroke="#b68a83" stroke-width="3" opacity=".28"/>
+  <g transform="translate(-33 19) rotate(-10 300 200)">
+  <path d="M299 236 Q293 252 301 267 Q316 277 338 269 L347 240Z" fill="url(#skin)"/>
+  <!-- 头偏左并落在对方肩上 -->
+  <path d="M260 153 Q250 167 249 191 Q251 216 269 237 Q288 250 313 244 Q334 229 339 207 Q342 181 322 158 Q297 139 276 146Z" fill="#433540" stroke="#e3a27e" stroke-width="2.3"/>
+  <path d="M326 181 Q339 199 329 221 Q321 238 306 243" fill="none" stroke="#bb806c" stroke-width="4" opacity=".52"/>
+  <path d="M257 181 Q248 169 254 151 Q253 133 268 121 Q282 104 303 107 Q320 106 335 125 Q349 142 344 162 Q337 174 336 187 Q328 175 313 170 Q285 171 269 183 L261 193Z" fill="#272533" stroke="#e7a17c" stroke-width="2.2"/>
+  <path d="M257 167 Q240 178 237 201 Q230 230 246 266 Q261 279 264 290 Q250 255 264 223" fill="#252632" stroke="#ad7568" stroke-width="1.8"/>
+  <path d="M324 121 Q345 142 339 169 M249 179 Q235 208 248 230" fill="none" stroke="#f1b68a" stroke-width="2" opacity=".65"/>
+  </g>
+  <!-- 搭肩手臂及交握的手 -->
+  <path d="M151 260 Q180 244 214 251 Q240 254 264 276 Q282 287 303 294 Q320 298 332 310 L324 332 Q302 329 288 318 Q247 302 219 299 Q192 304 173 323Z" fill="url(#coatA)" stroke="#d69a7b" stroke-width="2.5"/>
+  <path d="M321 308 Q343 311 346 326 Q337 344 323 341 Q310 334 312 320Z" fill="url(#skin)" stroke="#eab18a" stroke-width="1.7"/>
+  <path d="M335 336 Q354 365 344 395 Q324 417 287 415" fill="none" stroke="#e2a484" stroke-width="2" opacity=".35"/>
+  <path d="M190 386 Q229 388 259 398 L304 416 Q317 419 327 426 Q326 438 309 439 L265 427 Q221 421 187 420" fill="#303240" stroke="#c08a73" stroke-width="2"/>
+  <path d="M305 417 Q320 414 332 421 Q340 432 330 438 Q318 442 304 437 Q292 431 305 417Z" fill="url(#skin)" stroke="#e3a685" stroke-width="1.7"/>
+  <path d="M95 423 Q172 451 268 439 M341 442 Q390 446 425 423" fill="none" stroke="url(#rim)" stroke-width="3" opacity=".5"/>
+</svg>
+
+<svg class="bird" viewBox="0 0 90 50" aria-hidden="true">
+  <path d="M41 25 Q47 22 53 25 Q58 26 62 30 L51 29 L45 32 L39 28 L29 28Z" fill="#323142"/>
+  <path class="wing-left" d="M43 25 Q26 20 10 12 Q16 27 35 29 L44 29Z" fill="#333140"/>
+  <path class="wing-right" d="M51 25 Q65 17 82 14 Q75 28 56 30 L49 29Z" fill="#35313f"/>
+  <path d="M59 26 L70 23 L61 29Z" fill="#c58669"/>
+</svg>
+
+<svg class="reeds" viewBox="0 0 220 380" aria-hidden="true">
+  <g id="reedsMotion" fill="none" stroke-linecap="round">
+    <path d="M196 379 Q167 207 156 82 M209 380 Q191 206 190 117 M185 380 Q131 252 104 173 M220 380 Q199 290 140 230" stroke="#202b35" stroke-width="3.4"/>
+    <path d="M156 82 Q145 61 153 43 Q167 53 161 79Z M190 118 Q181 92 191 76 Q203 91 195 117Z M104 173 Q91 153 97 136 Q113 145 109 170Z" fill="#473b3d" stroke="#b18170" stroke-width="1.2"/>
+    <path d="M176 262 Q143 232 121 240 M187 309 Q150 288 135 306 M171 231 Q203 210 213 197 M147 279 Q121 253 96 257" stroke="#40444b" stroke-width="2"/>
+  </g>
+</svg>
+
+<div class="title"><span class="eyebrow">A quiet moment by the water</span><h1>与你共看落霞</h1><span class="poem">落霞与孤鹜齐飞，秋水共长天一色。</span></div>
+<div class="controls" aria-label="场景控制"><button id="pause" type="button" aria-label="暂停动画">暂停</button><button id="quality" type="button" aria-label="切换画质">画质：自动</button><button id="fullscreen" type="button" aria-label="切换全屏">全屏</button></div>
+<div id="renderer" role="status" hidden>兼容模式：Canvas 2D</div>
+<div id="status" role="alert"><p id="statusText"></p></div>
+
+<script>
+(() => {
+  let canvas = document.querySelector('#scene');
+  const status = document.querySelector('#status');
+  const statusText = document.querySelector('#statusText');
+  const pauseButton = document.querySelector('#pause');
+  const qualityButton = document.querySelector('#quality');
+  const bird = document.querySelector('.bird');
+  const reeds = document.querySelector('#reedsMotion');
+  const couple = document.querySelector('.couple');
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  let paused = reduced.matches, sceneTime = 0, lastFrame = 0, quality = 0, pointerX = 0, pointerY = 0;
+  let device, context, pipeline, bindGroup, uniformBuffer, format, raf, fallbackContext;
+  let pixelScale = 1;
+
+  function failure(message) { statusText.textContent = message; status.style.display = 'flex'; cancelAnimationFrame(raf); }
+  function updatePauseLabel() { pauseButton.textContent = paused ? '继续' : '暂停'; pauseButton.setAttribute('aria-label', paused ? '继续动画' : '暂停动画'); }
+  updatePauseLabel();
+  pauseButton.onclick = () => { paused = !paused; lastFrame = performance.now(); updatePauseLabel(); };
+  qualityButton.onclick = () => { quality = (quality + 1) % 3; qualityButton.textContent = ['画质：自动','画质：高','画质：省电'][quality]; resize(); };
+  document.querySelector('#fullscreen').onclick = async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); } catch (e) { console.warn('无法切换全屏', e); } };
+  reduced.addEventListener('change', e => { if (e.matches) { paused = true; updatePauseLabel(); } });
+  addEventListener('pointermove', e => { pointerX = Math.max(-1,Math.min(1,e.clientX/innerWidth*2-1)); pointerY = Math.max(-1,Math.min(1,e.clientY/innerHeight*2-1)); }, {passive:true});
+
+  const shader = /* wgsl */ `
+struct Globals { viewport: vec4f, motion: vec4f };
+@group(0) @binding(0) var<uniform> g: Globals;
+struct Out { @builtin(position) position: vec4f };
+@vertex fn vs(@builtin(vertex_index) i: u32) -> Out {
+  var o: Out;
+  let p = array<vec2f,3>(vec2f(-1.0,-1.0),vec2f(3.0,-1.0),vec2f(-1.0,3.0));
+  o.position = vec4f(p[i],0.0,1.0);
+  return o;
+}
+fn hash(p: vec2f) -> f32 { return fract(sin(dot(p,vec2f(127.1,311.7)))*43758.5453); }
+fn noise(p: vec2f) -> f32 {
+  let i=floor(p); let f=fract(p); let u=f*f*(3.0-2.0*f);
+  return mix(mix(hash(i),hash(i+vec2f(1.0,0.0)),u.x),mix(hash(i+vec2f(0.0,1.0)),hash(i+vec2f(1.0,1.0)),u.x),u.y);
+}
+fn fbm(p: vec2f) -> f32 {
+  var v=0.0; var a=0.5; var q=p;
+  for(var j=0;j<4;j=j+1){v+=a*noise(q);q=q*2.04+vec2f(8.2,1.7);a*=0.5;}
+  return v;
+}
+fn sky(p: vec2f, sun: vec2f, t: f32) -> vec3f {
+  let y=p.y; let low=vec3f(0.91,0.52,0.39); let mid=vec3f(0.66,0.51,0.63); let top=vec3f(0.26,0.36,0.51);
+  var c=mix(low,mid,smoothstep(0.19,0.53,0.55-y));
+  c=mix(c,top,smoothstep(0.36,0.93,0.56-y));
+  let band=exp(-abs(y-0.525)*11.0); c+=vec3f(0.1,0.055,0.025)*band;
+  let delta=vec2f((p.x-sun.x)*g.viewport.x/g.viewport.y,p.y-sun.y);
+  let r=length(delta);
+  c+=vec3f(0.98,0.48,0.23)*exp(-r*12.0)*0.33;
+  c+=vec3f(1.0,0.72,0.42)*exp(-r*34.0)*0.28;
+  let disk=1.0-smoothstep(0.053,0.061,r);
+  c=mix(c,vec3f(1.0,0.79,0.54),disk*0.91);
+  let n=fbm(vec2f(p.x*4.2+t*0.008,p.y*9.5-t*0.002));
+  let streak=sin(p.x*18.0+p.y*17.0+noise(p*vec2f(8.0,3.0))*4.0)*0.5+0.5;
+  let cloudMask=smoothstep(0.56,0.75,n*0.75+streak*0.33) * smoothstep(0.07,0.20,y) * (1.0-smoothstep(0.48,0.57,y));
+  let cloudLow=vec3f(0.36,0.33,0.46);
+  let cloudHigh=vec3f(0.97,0.59,0.48);
+  let cloud=mix(cloudLow,cloudHigh,smoothstep(0.17,0.50,y)+exp(-r*7.0)*0.3);
+  c=mix(c,cloud,cloudMask*0.62);
+  let n2=fbm(vec2f(p.x*7.0-t*0.005,p.y*16.0));
+  let thin=smoothstep(0.65,0.83,n2)*smoothstep(0.06,0.16,y)*(1.0-smoothstep(0.30,0.43,y));
+  c=mix(c,vec3f(0.64,0.53,0.62),thin*0.21);
+  return c;
+}
+@fragment fn fs(@builtin(position) pos: vec4f) -> @location(0) vec4f {
+  let p=pos.xy/g.viewport.xy;
+  let t=g.viewport.z;
+  let sun=vec2f(0.69+g.viewport.w*0.012,0.445+g.motion.x*0.006);
+  let horizon=0.545;
+  var c=sky(p,sun,t);
+  let ridge=0.540+0.010*sin(p.x*8.5)+0.005*sin(p.x*19.0+0.7)+0.0025*sin(p.x*48.0);
+  let far=0.543+0.004*sin(p.x*14.0+2.1)+0.002*sin(p.x*39.0);
+  if(p.y>ridge && p.y<horizon+0.013) {
+    let fog=smoothstep(0.535,0.563,p.y);
+    c=mix(c,vec3f(0.53,0.46,0.54),fog*0.37);
+  }
+  if(p.y>far && p.y<horizon+0.004) { c=mix(c,vec3f(0.64,0.50,0.54),0.20); }
+  if(p.y>horizon) {
+    let depth=clamp((p.y-horizon)/(1.0-horizon),0.0,1.0);
+    let waveX=p.x+sin(p.y*92.0+t*0.32)*0.002*depth+sin(p.y*173.0-t*0.47)*0.0013*depth;
+    let wave=sin(p.y*(135.0+depth*135.0)+sin(waveX*33.0+t*0.32)*2.0+t*0.31);
+    let small=sin(p.y*360.0+waveX*120.0+t*0.73)*sin(p.y*210.0-waveX*89.0-t*0.44);
+    let swell=noise(vec2f(waveX*18.0,p.y*88.0-t*0.30));
+    var water=mix(vec3f(0.64,0.52,0.55),vec3f(0.15,0.27,0.36),smoothstep(0.0,0.95,depth));
+    water+=vec3f(0.10,0.11,0.14)*(wave*0.5+small*0.22+swell*0.3)*(0.15+depth*0.38);
+    let wavering=sin(p.y*125.0+t*0.62)*0.013*depth+sin(p.y*272.0-t*0.38)*0.009*depth
+      +(noise(vec2f(floor(p.y*(170.0+depth*300.0))*0.074,t*0.08))-0.5)*(0.012+depth*0.075);
+    let xdist=abs(p.x-(sun.x+wavering+sin(p.y*36.0+t*0.18)*0.003));
+    let reach=exp(-xdist/(0.011+depth*0.145));
+    let strip=sin(p.y*(220.0+depth*470.0)+noise(vec2f(p.x*38.0,p.y*38.0))*4.0+t*(0.2+depth*0.7));
+    let shards=pow(max(strip,0.0),3.0);
+    let grain=hash(floor(vec2f(p.x*(180.0+depth*70.0),p.y*(230.0+depth*520.0))));
+    let glint=shards*(0.25+grain*0.75)*reach*(1.0-smoothstep(0.77,1.0,depth));
+    let wideGlow=reach*0.13*(1.0-depth*0.35);
+    water+=vec3f(1.0,0.68,0.37)*(glint*1.38+wideGlow);
+    let ripple=pow(max(wave*0.72+small*0.22,0.0),3.0)*depth*0.15;
+    water+=vec3f(0.49,0.41,0.44)*ripple;
+    let seam=smoothstep(horizon,horizon+0.02,p.y);
+    c=mix(c,water,seam);
+  }
+  let vignette=1.0-0.23*pow(length((p-vec2f(0.50,0.46))*vec2f(1.05,0.84)),1.7);
+  c*=vignette;
+  c+=(hash(pos.xy)-0.5)/255.0;
+  return vec4f(clamp(c,vec3f(0.0),vec3f(1.0)),1.0);
+}`;
+
+  function resize() {
+    if ((!device || !context) && !fallbackContext) return;
+    const dpr = Math.min(devicePixelRatio || 1, quality === 1 ? 1.8 : quality === 2 ? 0.75 : 1.25);
+    const maxPixels = quality === 1 ? 2600000 : quality === 2 ? 800000 : 1500000;
+    const s = Math.min(1, Math.sqrt(maxPixels/(innerWidth*innerHeight*dpr*dpr)));
+    pixelScale = dpr*s;
+    canvas.width = Math.max(1,Math.floor(innerWidth*pixelScale));
+    canvas.height = Math.max(1,Math.floor(innerHeight*pixelScale));
+    if (fallbackContext) fallbackContext.setTransform(pixelScale,0,0,pixelScale,0,0);
+    else context.configure({device,format,alphaMode:'opaque'});
+  }
+  function tick(now) {
+    if (!lastFrame) lastFrame=now;
+    const delta=Math.min((now-lastFrame)/1000,0.05); lastFrame=now;
+    if (!paused) sceneTime+=delta;
+  }
+  function updateForeground() {
+    // WebGPU and Canvas 2D use this same pausable clock.
+    const cycle=(sceneTime*0.018+0.22)%1;
+    const bx=innerWidth*(-0.12+1.26*cycle);
+    const by=innerHeight*(0.34-0.05*Math.sin(cycle*Math.PI)+0.018*Math.sin(sceneTime*0.31));
+    bird.style.transform=`translate(${bx}px,${by}px) scale(${Math.min(1.2,Math.max(.63,innerWidth/1400))}) rotate(${Math.sin(sceneTime*.37)*4}deg)`;
+    const flap=Math.sin(sceneTime*4.3)*25;
+    bird.querySelector('.wing-left').style.transform=`rotate(${-flap}deg)`;
+    bird.querySelector('.wing-right').style.transform=`rotate(${flap}deg)`;
+    reeds.style.transform=`rotate(${Math.sin(sceneTime*.61)*2.2}deg)`;
+    couple.style.transform=`translateY(${Math.sin(sceneTime*1.17)*.65}px)`;
+  }
+  function draw(now) {
+    if (!device) return;
+    tick(now);
+    const u = new Float32Array([canvas.width,canvas.height,sceneTime,pointerX, pointerY,quality,0,0]);
+    device.queue.writeBuffer(uniformBuffer,0,u);
+    const encoder=device.createCommandEncoder();
+    const pass=encoder.beginRenderPass({colorAttachments:[{view:context.getCurrentTexture().createView(),loadOp:'clear',storeOp:'store',clearValue:{r:0.2,g:0.25,b:0.3,a:1}}]});
+    pass.setPipeline(pipeline); pass.setBindGroup(0,bindGroup); pass.draw(3); pass.end();
+    device.queue.submit([encoder.finish()]);
+    updateForeground();
+    raf=requestAnimationFrame(draw);
+  }
+  function paintFallback() {
+    const ctx=fallbackContext, W=innerWidth, H=innerHeight, t=sceneTime;
+    const horizon=H*0.545, sunX=W*(0.69+pointerX*0.012), sunY=H*(0.445+pointerY*0.006);
+    ctx.setTransform(pixelScale,0,0,pixelScale,0,0);
+    const sky=ctx.createLinearGradient(0,0,0,horizon);
+    sky.addColorStop(0,'#46536f'); sky.addColorStop(.38,'#ab8198'); sky.addColorStop(.77,'#ed927d'); sky.addColorStop(1,'#f2a476');
+    ctx.fillStyle=sky; ctx.fillRect(0,0,W,horizon+2);
+    const glow=ctx.createRadialGradient(sunX,sunY,8,sunX,sunY,H*.37);
+    glow.addColorStop(0,'rgba(255,214,145,.46)'); glow.addColorStop(.23,'rgba(255,182,128,.20)'); glow.addColorStop(1,'rgba(255,176,126,0)');
+    ctx.fillStyle=glow; ctx.fillRect(0,0,W,horizon);
+    const cloudShapes=[[.08,.26,.25,.045],[.42,.23,.28,.058],[.82,.17,.22,.05],[.21,.39,.20,.025],[.75,.31,.26,.034],[.55,.12,.18,.032]];
+    for (let i=0;i<cloudShapes.length;i++) {
+      const c=cloudShapes[i], cx=W*(c[0]+Math.sin(t*.016+i)*.006), cy=H*c[1];
+      ctx.save(); ctx.translate(cx,cy); ctx.scale(W*c[2],H*c[3]);
+      const mist=ctx.createRadialGradient(0,0,.08,0,0,1);
+      mist.addColorStop(0,i%2?'rgba(72,65,86,.28)':'rgba(94,71,88,.25)');
+      mist.addColorStop(.72,'rgba(128,91,105,.14)'); mist.addColorStop(1,'rgba(128,91,105,0)');
+      ctx.fillStyle=mist; ctx.beginPath(); ctx.arc(0,0,1,0,Math.PI*2); ctx.fill(); ctx.restore();
+    }
+    ctx.fillStyle='#ffdaa1'; ctx.beginPath(); ctx.arc(sunX,sunY,H*.057,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(0,horizon+3);
+    for (let x=0;x<=W+8;x+=8) ctx.lineTo(x,horizon-H*(.003+.007*Math.sin(x/W*8.5)+.002*Math.sin(x/W*19+.7)));
+    ctx.lineTo(W,horizon+11); ctx.lineTo(0,horizon+11); ctx.closePath(); ctx.fillStyle='rgba(100,83,102,.25)'; ctx.fill();
+    const water=ctx.createLinearGradient(0,horizon,0,H);
+    water.addColorStop(0,'#a48b93'); water.addColorStop(.30,'#676f80'); water.addColorStop(1,'#263f52');
+    ctx.fillStyle=water; ctx.fillRect(0,horizon,W,H-horizon);
+    const waveCount=quality===2?75:quality===1?150:112;
+    for (let i=0;i<waveCount;i++) {
+      const depth=(i+.5)/waveCount, y=horizon+(H-horizon)*depth;
+      const a=(.06+depth*.13)*(0.6+0.4*Math.sin(i*1.73+t*.25));
+      ctx.strokeStyle=`rgba(214,199,198,${a})`; ctx.lineWidth=.65+depth*.75;
+      ctx.beginPath();
+      for (let x=0;x<=W+18;x+=18) {
+        const yy=y+Math.sin(x*.024+i*.8+t*.36)*(.3+depth*1.4);
+        if(x===0) ctx.moveTo(x,yy); else ctx.lineTo(x,yy);
+      }
+      ctx.stroke();
+    }
+    const hash=n=>{const v=Math.sin(n*127.1)*43758.5453;return v-Math.floor(v);};
+    const glints=quality===2?135:quality===1?320:225;
+    for (let i=0;i<glints;i++) {
+      const d=(i+.5)/glints, y=horizon+(H-horizon)*Math.pow(d,.92);
+      const spread=(.015+d*.18)*W;
+      const sway=Math.sin(y*.12+t*.62)*d*W*.011;
+      const x=sunX+sway+(hash(i*9.73)-.5)*spread*1.8;
+      const width=(2+hash(i*4.11)*18)*(0.5+d*1.2);
+      const strength=(.16+hash(i*2.27)*.5)*(1-d*.57);
+      ctx.strokeStyle=`rgba(255,214,158,${strength})`; ctx.lineWidth=.65+d*1.55;
+      ctx.beginPath(); ctx.moveTo(x-width*.5,y); ctx.lineTo(x+width*.5,y+Math.sin(i+t*.23)*.4); ctx.stroke();
+    }
+    const vignette=ctx.createRadialGradient(W*.5,H*.47,H*.08,W*.5,H*.47,Math.max(W,H)*.78);
+    vignette.addColorStop(0,'rgba(19,27,43,0)'); vignette.addColorStop(1,'rgba(16,24,36,.22)');
+    ctx.fillStyle=vignette; ctx.fillRect(0,0,W,H);
+  }
+  function drawFallback(now) {
+    if (!fallbackContext) return;
+    tick(now); paintFallback(); updateForeground(); raf=requestAnimationFrame(drawFallback);
+  }
+  function initFallback(reason) {
+    if (fallbackContext) return;
+    console.info('使用 Canvas 2D 兼容模式：',reason);
+    cancelAnimationFrame(raf);
+    device=null; context=null;
+    const replacement=canvas.cloneNode(false);
+    canvas.replaceWith(replacement); canvas=replacement;
+    canvas.setAttribute('aria-label','Canvas 2D 兼容模式绘制的落日、晚霞与秋水');
+    fallbackContext=canvas.getContext('2d',{alpha:false});
+    if (!fallbackContext) { failure('此浏览器无法创建绘图画布，请更新 Edge 后重试。'); return; }
+    document.querySelector('#renderer').hidden=false;
+    lastFrame=performance.now(); resize(); raf=requestAnimationFrame(drawFallback);
+  }
+  async function init() {
+    if (new URLSearchParams(location.search).get('renderer')==='canvas') { initFallback('手动选择'); return; }
+    if (!isSecureContext || !navigator.gpu) { initFallback('WebGPU 不可用'); return; }
+    try {
+      const adapter=await navigator.gpu.requestAdapter({powerPreference:'high-performance'});
+      if (!adapter) throw new Error('未找到可用的 WebGPU 图形适配器');
+      device=await adapter.requestDevice();
+      device.lost.then(info => initFallback(`WebGPU 设备已断开：${info.message || '未知原因'}`));
+      context=canvas.getContext('webgpu');
+      if (!context) throw new Error('无法创建 WebGPU 绘图上下文');
+      format=navigator.gpu.getPreferredCanvasFormat();
+      const module=device.createShaderModule({code:shader});
+      const errors=await module.getCompilationInfo();
+      const shaderErrors=errors.messages.filter(m=>m.type==='error');
+      if (shaderErrors.length) throw new Error(shaderErrors.map(m=>`第 ${m.lineNum} 行：${m.message}`).join('\n'));
+      pipeline=device.createRenderPipeline({layout:'auto',vertex:{module,entryPoint:'vs'},fragment:{module,entryPoint:'fs',targets:[{format}]},primitive:{topology:'triangle-list'}});
+      uniformBuffer=device.createBuffer({size:32,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
+      bindGroup=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniformBuffer}}]});
+      resize();
+      raf=requestAnimationFrame(draw);
+    } catch(e) { initFallback(e.message || String(e)); }
+  }
+  addEventListener('resize',resize);
+  init();
+})();
+</script>
+</body>
+</html>
+
